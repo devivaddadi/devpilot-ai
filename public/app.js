@@ -218,6 +218,7 @@ function setupEventListeners() {
 
   // Handle Form Submissions
   setupFormSubmissions();
+  setupCopilotEventListeners();
 }
 
 function displayRepoDetails(repo) {
@@ -304,6 +305,20 @@ async function populateBranchSelects(modalId) {
 function refreshCurrentTab() {
   if (activeTab === 'tab-analyzer') {
     loadIndexedFiles();
+    return;
+  }
+
+  // Hook copilot tabs that do not depend on a repository selection
+  if (activeTab === 'tab-agent-status') {
+    loadAgentRegistryStatus();
+    return;
+  }
+  if (activeTab === 'tab-demo-scenarios') {
+    loadDemoScenariosUI();
+    return;
+  }
+  if (activeTab === 'tab-memory') {
+    loadMemoryLogs();
     return;
   }
 
@@ -1120,5 +1135,536 @@ function startAnalyzerPolling(repoName) {
     } catch (err) {
       console.error('Error polling status:', err);
     }
-  }, 1000);
 }
+
+// --- AI Agent Copilot Module Logic ---
+
+let copilotConversationId = null;
+let lastAiResponse = '';
+
+async function initCopilotSession() {
+  copilotConversationId = localStorage.getItem('devpilot_convo_id');
+  if (!copilotConversationId) {
+    try {
+      const res = await fetch('/api/chat/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'DevPilot Web Chat' })
+      });
+      const data = await res.json();
+      if (data.success && data.conversation) {
+        copilotConversationId = data.conversation.id;
+        localStorage.setItem('devpilot_convo_id', copilotConversationId);
+      }
+    } catch (err) {
+      console.error('Failed to create default conversation session:', err);
+      // Fallback: use a static string ID (Express memory/DB handles this dynamically)
+      copilotConversationId = 'default-ui-session';
+    }
+  }
+}
+
+// Ensure initCopilotSession is run on load
+document.addEventListener('DOMContentLoaded', () => {
+  initCopilotSession();
+});
+
+// Setup event listeners for Copilot tabs
+function setupCopilotEventListeners() {
+  // AI Assistant Chat Submit
+  const formAiChat = document.getElementById('form-ai-chat');
+  if (formAiChat) {
+    formAiChat.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const inputEl = document.getElementById('ai-chat-input');
+      const prompt = inputEl.value.trim();
+      if (!prompt) return;
+
+      appendAiMessage('user', prompt);
+      inputEl.value = '';
+
+      const messagesContainer = document.getElementById('ai-chat-messages');
+      const responseBlock = appendAiMessage('assistant', '<span class="loading-dots">Thinking...</span>');
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      let streamedText = '';
+
+      try {
+        const response = await fetch('/api/orchestrator/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, conversationId: copilotConversationId })
+        });
+
+        if (!response.body) {
+          throw new Error('ReadableStream not supported by response');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+
+        while (!done) {
+          const { value, done: readerDone } = await reader.read();
+          done = readerDone;
+          if (value) {
+            const chunk = decoder.decode(value, { stream: !done });
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const dataStr = line.slice(6).trim();
+                if (dataStr === '[DONE]') continue;
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  if (parsed.chunk) {
+                    streamedText += parsed.chunk;
+                    responseBlock.innerHTML = formatMarkdown(streamedText);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                  } else if (parsed.status === 'completed' && parsed.metadata) {
+                    // Update Router Decision Panel
+                    updateRouterDecisionPanel(parsed.metadata);
+                    lastAiResponse = streamedText;
+                    document.getElementById('btn-export-ai-response').removeAttribute('disabled');
+                  }
+                } catch (e) {
+                  // Ignores partial line chunks
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        responseBlock.textContent = `Error executing request: ${err.message}`;
+      }
+    });
+  }
+
+  // Export AI Response
+  document.getElementById('btn-export-ai-response').addEventListener('click', () => {
+    if (!lastAiResponse) return;
+    downloadFile(lastAiResponse, 'devpilot_response.md', 'text/markdown');
+  });
+
+  // Clear AI Memory
+  document.getElementById('btn-clear-ai-memory').addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to clear chat history?')) return;
+    try {
+      await fetch(`/api/memory/clear/${copilotConversationId}`, { method: 'DELETE' });
+      document.getElementById('ai-chat-messages').innerHTML = '<div class="placeholder-text">Ask the AI assistant anything...</div>';
+      document.getElementById('ai-router-decision').innerHTML = '<p class="placeholder-text">Submit a prompt to see routing trace logs.</p>';
+      document.getElementById('btn-export-ai-response').setAttribute('disabled', 'true');
+      lastAiResponse = '';
+      alert('Conversation history successfully cleared.');
+    } catch (err) {
+      alert('Failed to clear memory: ' + err.message);
+    }
+  });
+
+  // Run Multi-Agent Cascade
+  document.getElementById('btn-run-multi-agent').addEventListener('click', async () => {
+    const inputEl = document.getElementById('multi-agent-input');
+    const userPrompt = inputEl.value.trim();
+    if (!userPrompt) return;
+
+    // Reset UI blocks
+    resetCascadeUI();
+    document.getElementById('multi-agent-export-section').classList.add('hidden');
+
+    try {
+      // Step 1: Planning Agent
+      updateStepUI(1, 'active', 'Generating plan...');
+      const plan = await runSingleAgent('planning', `Create an architectural layout and milestones to build: ${userPrompt}`, 'cascade-text-1');
+      updateStepUI(1, 'completed', plan);
+
+      // Step 2: Coding Agent
+      updateStepUI(2, 'active', 'Writing source code...');
+      const code = await runSingleAgent('coding', `Implement the source code following this plan:\n\n${plan}`, 'cascade-text-2');
+      updateStepUI(2, 'completed', code);
+
+      // Step 3: Debugger Agent
+      updateStepUI(3, 'active', 'Auditing codebase for bugs/security gaps...');
+      const audit = await runSingleAgent('debugger', `Verify if there are security loopholes or flaws in this code, and fix them:\n\n${code}`, 'cascade-text-3');
+      updateStepUI(3, 'completed', audit);
+
+      // Reveal Export button
+      document.getElementById('multi-agent-export-section').classList.remove('hidden');
+
+      // Bind Export Report
+      document.getElementById('btn-export-cascade-report').onclick = () => {
+        const combinedReport = `# Multi-Agent Collaborative Report\n\n## Objective:\n${userPrompt}\n\n## Step 1: Planning Agent Design Spec\n${plan}\n\n## Step 2: Coding Agent Codebase\n\`\`\`python\n${code}\n\`\`\`\n\n## Step 3: Debugger Security Verification\n${audit}\n`;
+        downloadFile(combinedReport, 'multi_agent_cascade_report.md', 'text/markdown');
+      };
+
+    } catch (err) {
+      alert('Cascade chain interrupted: ' + err.message);
+    }
+  });
+
+  // Memory Download Buttons
+  document.getElementById('btn-download-memory-json').addEventListener('click', async () => {
+    try {
+      const res = await fetch(`/api/memory/context/${copilotConversationId}`);
+      const data = await res.json();
+      downloadFile(JSON.stringify(data.messages || [], null, 2), 'devpilot_memory.json', 'application/json');
+    } catch (err) {
+      alert('Failed to download memory: ' + err.message);
+    }
+  });
+
+  document.getElementById('btn-download-memory-txt').addEventListener('click', () => {
+    const rawText = document.getElementById('memory-raw-text').value;
+    downloadFile(rawText, 'devpilot_memory.txt', 'text/plain');
+  });
+}
+
+// Helper to download content as a file
+function downloadFile(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Append Chat Bubble
+function appendAiMessage(role, content) {
+  const container = document.getElementById('ai-chat-messages');
+  // Clear placeholder text
+  const placeholder = container.querySelector('.placeholder-text');
+  if (placeholder) placeholder.remove();
+
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble chat-bubble-${role}`;
+  bubble.innerHTML = role === 'assistant' ? formatMarkdown(content) : escapeHtml(content);
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+// Format Simple Markdown for UI rendering
+function formatMarkdown(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/```([\s\S]*?)```/g, '<pre class="code-block"><code>$1</code></pre>')
+    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Update Router Decision Display
+function updateRouterDecisionPanel(meta) {
+  const panel = document.getElementById('ai-router-decision');
+  panel.innerHTML = `
+    <div class="router-decision-panel">
+      <div class="decision-metric">
+        <label>Selected Agent</label>
+        <span class="val highlighted">${meta.agentName || 'unknown'}</span>
+      </div>
+      <div class="decision-metric">
+        <label>Classification Mode</label>
+        <span class="val">${meta.mode || 'standard'}</span>
+      </div>
+      <div class="decision-metric">
+        <label>Active LLM Provider</label>
+        <span class="val">${meta.provider || 'offline'}</span>
+      </div>
+      <div class="decision-metric">
+        <label>Reasoning Log</label>
+        <p class="val-desc">${meta.reasoning || 'No details provided.'}</p>
+      </div>
+    </div>
+  `;
+}
+
+// Single Agent Execution helper (SSE)
+async function runSingleAgent(agentKey, prompt, outputElementId) {
+  const box = document.getElementById(outputElementId);
+  box.textContent = '';
+  box.classList.remove('placeholder-text');
+  let textAccumulator = '';
+
+  const response = await fetch(`/api/agent/${agentKey}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+
+  if (!response.body) {
+    throw new Error('ReadableStream not supported');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let done = false;
+
+  while (!done) {
+    const { value, done: readerDone } = await reader.read();
+    done = readerDone;
+    if (value) {
+      const chunk = decoder.decode(value, { stream: !done });
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6).trim();
+          if (dataStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(dataStr);
+            if (parsed.chunk) {
+              textAccumulator += parsed.chunk;
+              box.textContent = textAccumulator;
+            }
+          } catch (e) {}
+        }
+      }
+    }
+  }
+
+  return textAccumulator;
+}
+
+// Cascade Steps styling helpers
+function resetCascadeUI() {
+  for (let i = 1; i <= 3; i++) {
+    const badge = document.querySelector(`#cascade-step-${i} .cascade-badge`);
+    badge.className = 'cascade-badge badge-pending';
+    badge.textContent = 'Waiting';
+    const textEl = document.getElementById(`cascade-text-${i}`);
+    textEl.textContent = 'Waiting to run...';
+    textEl.classList.add('placeholder-text');
+  }
+}
+
+function updateStepUI(stepIndex, status, content, isCode = false) {
+  const badge = document.querySelector(`#cascade-step-${stepIndex} .cascade-badge`);
+  const box = document.getElementById(`cascade-text-${stepIndex}`);
+  
+  if (status === 'active') {
+    badge.className = 'cascade-badge badge-active';
+    badge.textContent = 'Running';
+    box.textContent = content;
+  } else if (status === 'completed') {
+    badge.className = 'cascade-badge badge-completed';
+    badge.textContent = 'Completed';
+    box.textContent = content;
+    box.classList.remove('placeholder-text');
+  }
+}
+
+// Load Agent registry list
+async function loadAgentRegistryStatus() {
+  const listEl = document.getElementById('agent-status-list');
+  listEl.innerHTML = '<div class="placeholder-text">Loading agents...</div>';
+
+  try {
+    const res = await fetch('/api/agent-registry');
+    const agents = await res.json();
+    
+    if (agents.length === 0) {
+      listEl.innerHTML = '<div class="empty-state">No agents registered.</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    agents.forEach(agent => {
+      const card = document.createElement('div');
+      card.className = 'panel-card glass agent-status-card';
+      card.innerHTML = `
+        <div class="agent-card-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h4 style="margin:0; color:#818cf8;">🤖 ${agent.name}</h4>
+          <span class="status-badge active" style="font-size:0.75rem; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3); padding:2px 8px; border-radius:9999px;">🟢 Active</span>
+        </div>
+        <p style="margin:0 0 6px 0;"><strong>Key:</strong> <code>${agent.key}</code></p>
+        <p style="color:#a0aec0; margin:0 0 12px 0;">${agent.description || 'No description provided.'}</p>
+        <div class="agent-prompt-box">
+          <label style="font-weight:bold; font-size:0.85rem; color:#818cf8;">System Instructions</label>
+          <pre style="background:rgba(15,23,42,0.3); border:1px solid rgba(255,255,255,0.05); padding:10px; border-radius:8px; font-size:0.85rem; max-height:150px; overflow-y:auto; margin:5px 0 0 0; white-space:pre-wrap;">${agent.systemPrompt || 'Discovered statically from package module.'}</pre>
+        </div>
+      `;
+      listEl.appendChild(card);
+    });
+  } catch (err) {
+    listEl.innerHTML = `<div class="empty-state error">Failed to load registry: ${err.message}</div>`;
+  }
+}
+
+// Load Demo Scenarios
+function loadDemoScenariosUI() {
+  const grid = document.getElementById('scenarios-grid');
+  const demoScenarios = [
+    { title: "Python REST API Generation", prompt: "Generate a Python REST API using FastAPI" },
+    { title: "Debug Division-by-Zero", prompt: "Find the bug in this code:\n\ndef calculate_average(numbers):\n    return sum(numbers) / len(numbers)\n\nprint(calculate_average([]))" },
+    { title: "Project Markdown README", prompt: "Create a professional README.md structure for DevPilot AI" },
+    { title: "Milestone Engineering Roadmap", prompt: "Create a phased engineering roadmap for building a job portal" },
+    { title: "Explain Codebase Layout", prompt: "Explain the folder structure and architectural components of the devpilot-ai repository" },
+    { title: "Docker Container Failure", prompt: "Why is docker container failing to start with port bind error on 80?" }
+  ];
+
+  grid.innerHTML = '';
+  demoScenarios.forEach((s, idx) => {
+    const card = document.createElement('div');
+    card.className = 'panel-card glass scenario-card';
+    card.innerHTML = `
+      <h4>${s.title}</h4>
+      <p style="font-style: italic; color:#94a3b8; font-size:0.9rem; margin-bottom:12px;">"${s.prompt.slice(0, 80)}..."</p>
+      <button class="btn btn-primary btn-sm btn-run-demo" data-index="${idx}">Trigger Scenario</button>
+    `;
+    grid.appendChild(card);
+  });
+
+  // Bind scenario trigger buttons
+  grid.querySelectorAll('.btn-run-demo').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const idx = e.target.dataset.index;
+      const scenario = demoScenarios[idx];
+
+      const outSection = document.getElementById('demo-output-section');
+      const outText = document.getElementById('demo-output-text');
+      const traceText = document.getElementById('demo-trace-text');
+
+      outSection.classList.remove('hidden');
+      outText.innerHTML = '<span class="loading-dots">Processing...</span>';
+      traceText.textContent = 'Waiting for trace logs...';
+
+      let accumulated = '';
+
+      try {
+        const response = await fetch('/api/orchestrator/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: scenario.prompt, conversationId: copilotConversationId })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+
+        while (!done) {
+          const { value, done: readerDone } = await reader.read();
+          done = readerDone;
+          if (value) {
+            const chunk = decoder.decode(value, { stream: !done });
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const dataStr = line.slice(6).trim();
+                if (dataStr === '[DONE]') continue;
+                try {
+                  const parsed = JSON.parse(dataStr);
+                  if (parsed.chunk) {
+                    accumulated += parsed.chunk;
+                    outText.innerHTML = formatMarkdown(accumulated);
+                  } else if (parsed.status === 'completed' && parsed.metadata) {
+                    traceText.textContent = JSON.stringify(parsed.metadata, null, 2);
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+        }
+      } catch (err) {
+        outText.textContent = `Execution failed: ${err.message}`;
+      }
+    });
+  });
+}
+
+// Load Memory viewer log list and text
+async function loadMemoryLogs() {
+  const messagesList = document.getElementById('memory-messages-list');
+  const rawTextarea = document.getElementById('memory-raw-text');
+
+  messagesList.innerHTML = '<div class="placeholder-text">Loading thread memory...</div>';
+  rawTextarea.value = '';
+
+  try {
+    const res = await fetch(`/api/memory/context/${copilotConversationId}`);
+    const data = await res.json();
+
+    const messages = data.messages || [];
+    
+    // Fill raw transcript
+    let rawContent = '';
+    if (data.systemPromptExtension) {
+      rawContent += `${data.systemPromptExtension}\n\n`;
+    }
+    messages.forEach(msg => {
+      rawContent += `${msg.role.toUpperCase()}: ${msg.content}\n\n`;
+    });
+    rawTextarea.value = rawContent;
+
+    if (messages.length === 0) {
+      messagesList.innerHTML = '<div class="empty-state">No messages logged in this session thread.</div>';
+      return;
+    }
+
+    messagesList.innerHTML = '';
+    messages.forEach((msg, idx) => {
+      const row = document.createElement('div');
+      row.className = 'memory-log-row';
+      row.style = 'border-bottom:1px solid rgba(255,255,255,0.05); padding:12px 0; margin-bottom:10px;';
+      row.innerHTML = `
+        <div class="row-header" style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span class="role-badge ${msg.role}" style="font-size:0.75rem; background:rgba(99,102,241,0.15); color:#818cf8; border:1px solid rgba(99,102,241,0.3); padding:2px 8px; border-radius:9999px;">${msg.role.toUpperCase()}</span>
+          <button class="btn btn-outline btn-sm btn-delete-msg" data-index="${idx}" style="font-size:0.75rem; padding:2px 8px;">Delete</button>
+        </div>
+        <textarea class="form-control msg-editor" data-index="${idx}" style="width:100%; box-sizing:border-box; background:rgba(15,23,42,0.2); border:1px solid rgba(255,255,255,0.05); padding:8px; border-radius:6px; color:#f8fafc; font-size:0.9rem; height:60px;">${msg.content}</textarea>
+      `;
+      messagesList.appendChild(row);
+    });
+
+    // Handle editing focusouts
+    messagesList.querySelectorAll('.msg-editor').forEach(textarea => {
+      textarea.addEventListener('focusout', async (e) => {
+        const idx = e.target.dataset.index;
+        const newContent = e.target.value;
+        
+        // Save changes back to memory context
+        try {
+          messages[idx].content = newContent;
+          // Put the whole updated array back or update on backend
+          await fetch('/api/memory/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              conversationId: copilotConversationId,
+              role: messages[idx].role,
+              content: newContent
+            })
+          });
+          // Reload
+          loadMemoryLogs();
+        } catch (err) {
+          console.error('Failed to update message:', err);
+        }
+      });
+    });
+
+    // Handle delete button
+    messagesList.querySelectorAll('.btn-delete-msg').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const idx = e.target.dataset.index;
+        if (!confirm('Are you sure you want to delete this message?')) return;
+        
+        alert('Delete complete (local mock update).');
+        messages.splice(idx, 1);
+        loadMemoryLogs();
+      });
+    });
+
+  } catch (err) {
+    messagesList.innerHTML = `<div class="empty-state error">Failed to load memory context: ${err.message}</div>`;
+  }
+}
+

@@ -92,6 +92,13 @@
           <button class="nav-item" data-tab="tab-webhooks">Webhooks</button>
           <button class="nav-item" data-tab="tab-incoming">Webhook Stream</button>
           <button class="nav-item" data-tab="tab-analyzer">Code Search & RAG</button>
+          <div class="sidebar-section-title">🤖 AI Agent Copilot</div>
+          <button class="nav-item" data-tab="tab-ai-assistant">AI Assistant</button>
+          <button class="nav-item" data-tab="tab-agent-status">Agent Status</button>
+          <button class="nav-item" data-tab="tab-demo-scenarios">Demo Scenarios</button>
+          <button class="nav-item" data-tab="tab-multi-agent">Multi-Agent Demo</button>
+          <button class="nav-item" data-tab="tab-workflow">Workflow Visualizer</button>
+          <button class="nav-item" data-tab="tab-memory">Memory Viewer</button>
         </div>
       </aside>
 
@@ -244,6 +251,174 @@
             </div>
             <div class="files-list list-container" id="analyzer-files-list">
               <div class="placeholder-text">Clone and analyze a repository to view indexed files.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Assistant & Chat Tab -->
+        <div id="tab-ai-assistant" class="tab-pane">
+          <div class="tab-header">
+            <h2>Interactive AI Assistant</h2>
+          </div>
+          <p class="tab-desc">Ask DevPilot developer questions and get real-time responses from specialized agent personas.</p>
+          <div class="ai-assistant-grid">
+            <div class="chat-area glass">
+              <div id="ai-chat-messages" class="chat-messages-container">
+                <div class="placeholder-text">Ask the AI assistant anything...</div>
+              </div>
+              <form id="form-ai-chat" class="chat-input-box">
+                <input type="text" id="ai-chat-input" class="form-control" placeholder="Ask a question (e.g. Generate a FastAPI endpoint)..." required>
+                <button type="submit" class="btn btn-primary">Send</button>
+              </form>
+            </div>
+            <div class="sidebar-details">
+              <div class="panel-card glass">
+                <h4>Router Decision Panel</h4>
+                <div id="ai-router-decision" class="router-decision-box">
+                  <p class="placeholder-text">Submit a prompt to see routing trace logs.</p>
+                </div>
+              </div>
+              <div class="panel-card glass">
+                <h4>Actions</h4>
+                <button id="btn-export-ai-response" class="btn btn-secondary btn-sm block-btn" disabled>Export Latest Response</button>
+                <button id="btn-clear-ai-memory" class="btn btn-outline btn-sm block-btn">Clear Chat History</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent Status Dashboard Tab -->
+        <div id="tab-agent-status" class="tab-pane">
+          <div class="tab-header">
+            <h2>Agent Status Dashboard</h2>
+          </div>
+          <p class="tab-desc">Dynamic status monitoring of registered AI agent personas inside the system registry.</p>
+          <div id="agent-status-list" class="agent-status-grid">
+            <div class="placeholder-text">Loading agent metadata...</div>
+          </div>
+        </div>
+
+        <!-- Demo Scenarios Tab -->
+        <div id="tab-demo-scenarios" class="tab-pane">
+          <div class="tab-header">
+            <h2>Demo Scenarios Page</h2>
+          </div>
+          <p class="tab-desc">Run preconfigured developer test workloads and trace their routing decision pipelines.</p>
+          <div class="scenarios-grid" id="scenarios-grid">
+            <!-- Populated dynamically via JS -->
+          </div>
+          <div id="demo-output-section" class="demo-output-section glass hidden">
+            <h3>Scenario Execution Output</h3>
+            <div class="demo-output-grid">
+              <div class="demo-output-block">
+                <h4>Response Content</h4>
+                <div id="demo-output-text" class="markdown-block"></div>
+              </div>
+              <div class="demo-trace-block">
+                <h4>Routing Decision Trace</h4>
+                <pre id="demo-trace-text" class="trace-output-block"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Multi-Agent Demo Tab -->
+        <div id="tab-multi-agent" class="tab-pane">
+          <div class="tab-header">
+            <h2>Multi-Agent Collaborative Demo</h2>
+          </div>
+          <p class="tab-desc">Simulate a sequential development chain involving the Planner, Coder, and Debugger agents.</p>
+          <div class="multi-agent-input-row">
+            <input type="text" id="multi-agent-input" class="form-control" placeholder="Describe a complex project (e.g. Build a secure user login API endpoint with JWT)" value="Build a secure user login API endpoint with JWT" required>
+            <button id="btn-run-multi-agent" class="btn btn-primary">Run Collaborative Chain</button>
+          </div>
+          <div class="multi-agent-cascade">
+            <div class="cascade-step" id="cascade-step-1">
+              <div class="step-header">
+                <h4>Step 1: Planning Agent 🗺️</h4>
+                <span class="cascade-badge badge-pending">Waiting</span>
+              </div>
+              <div class="cascade-box placeholder-text" id="cascade-text-1">Waiting to run...</div>
+            </div>
+            <div class="cascade-step" id="cascade-step-2">
+              <div class="step-header">
+                <h4>Step 2: Coding Agent 💻</h4>
+                <span class="cascade-badge badge-pending">Waiting</span>
+              </div>
+              <pre class="cascade-box placeholder-text" id="cascade-text-2">Waiting to run...</pre>
+            </div>
+            <div class="cascade-step" id="cascade-step-3">
+              <div class="step-header">
+                <h4>Step 3: Debugger Agent 🩺</h4>
+                <span class="cascade-badge badge-pending">Waiting</span>
+              </div>
+              <div class="cascade-box placeholder-text" id="cascade-text-3">Waiting to run...</div>
+            </div>
+          </div>
+          <div id="multi-agent-export-section" class="hidden">
+            <button id="btn-export-cascade-report" class="btn btn-primary">Download Complete Combined Report</button>
+          </div>
+        </div>
+
+        <!-- Workflow Visualizer Tab -->
+        <div id="tab-workflow" class="tab-pane">
+          <div class="tab-header">
+            <h2>Workflow Visualization</h2>
+          </div>
+          <p class="tab-desc">A graphical representation of the multi-agent task routing and context validation pipeline.</p>
+          <div class="workflow-flow-diagram">
+            <div class="flow-step highlight">
+              <h5>1. User Request</h5>
+              <span>Streamlit / CLI / Dashboard Prompt</span>
+            </div>
+            <div class="flow-arrow-down">▼</div>
+            <div class="flow-step">
+              <h5>2. Task Router Classification</h5>
+              <span>Checks keyword triggers (Tier 1-3) or runs LLM Semantic Check</span>
+            </div>
+            <div class="flow-arrow-down">▼</div>
+            <div class="flow-step">
+              <h5>3. Agent Registry Match</h5>
+              <span>Resolves selection mapping to target persona module</span>
+            </div>
+            <div class="flow-arrow-down">▼</div>
+            <div class="flow-step">
+              <h5>4. Memory Context Injection</h5>
+              <span>Pulls and prunes previous chat history summary</span>
+            </div>
+            <div class="flow-arrow-down">▼</div>
+            <div class="flow-step highlight">
+              <h5>5. Unified LLM Execution</h5>
+              <span>Gemini / OpenAI API call or Offline Mock simulation</span>
+            </div>
+            <div class="flow-arrow-down">▼</div>
+            <div class="flow-step">
+              <h5>6. Log & Save Response</h5>
+              <span>Appends output to thread database and renders result</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Memory Viewer Tab -->
+        <div id="tab-memory" class="tab-pane">
+          <div class="tab-header">
+            <h2>Memory Viewer & Editor</h2>
+          </div>
+          <p class="tab-desc">Inspect, modify, delete or download active conversation logs stored inside the database.</p>
+          <div class="memory-viewer-grid">
+            <div class="memory-messages-panel glass">
+              <h4>Messages Inspector</h4>
+              <div id="memory-messages-list" class="list-container">
+                <div class="placeholder-text">Load memory history...</div>
+              </div>
+            </div>
+            <div class="memory-raw-panel glass">
+              <h4>Raw Transcript Output</h4>
+              <textarea id="memory-raw-text" class="form-control text-area-large" readonly></textarea>
+              <div class="memory-actions-row">
+                <button id="btn-download-memory-json" class="btn btn-secondary btn-sm">Download JSON</button>
+                <button id="btn-download-memory-txt" class="btn btn-outline btn-sm">Download Plain Text</button>
+              </div>
             </div>
           </div>
         </div>
