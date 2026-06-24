@@ -56,6 +56,15 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace !important;
     }
     
+    /* Layout styling optimization */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+        padding-left: 2.5rem !important;
+        padding-right: 2.5rem !important;
+        max-width: 96% !important;
+    }
+    
     /* Background colors */
     [data-testid="stAppViewContainer"] {
         background-color: #0b0f19;
@@ -255,6 +264,90 @@ st.markdown("""
         border-color: rgba(99, 102, 241, 0.25);
         color: #ffffff;
     }
+    
+    /* Custom Quick Action Buttons inside Streamlit columns */
+    div[data-testid="column"]:has(.qa-trigger-purple) div.stButton > button,
+    div[data-testid="column"]:has(.qa-trigger-blue) div.stButton > button,
+    div[data-testid="column"]:has(.qa-trigger-green) div.stButton > button,
+    div[data-testid="column"]:has(.qa-trigger-yellow) div.stButton > button {
+        height: 120px !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        color: #ffffff !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35) !important;
+        text-align: center !important;
+        padding: 14px !important;
+    }
+    
+    /* Text formatting inside quick action buttons */
+    div[data-testid="column"]:has([class^="qa-trigger-"]) div.stButton > button p,
+    div[data-testid="column"]:has([class^="qa-trigger-"]) div.stButton > button span {
+        white-space: pre-line !important;
+        line-height: 1.4 !important;
+        text-align: center !important;
+        font-family: 'Outfit', sans-serif !important;
+        font-size: 0.75rem !important;
+        color: #94a3b8 !important;
+    }
+    
+    div[data-testid="column"]:has([class^="qa-trigger-"]) div.stButton > button strong {
+        font-size: 0.9rem !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        display: block !important;
+        margin-top: 4px !important;
+        margin-bottom: 2px !important;
+        letter-spacing: -0.01em !important;
+    }
+    
+    /* Hover animations & specific colors matching reference.png */
+    div[data-testid="column"]:has(.qa-trigger-purple) div.stButton > button {
+        background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(168, 85, 247, 0.03) 100%) !important;
+        border: 1px solid rgba(168, 85, 247, 0.25) !important;
+    }
+    div[data-testid="column"]:has(.qa-trigger-purple) div.stButton > button:hover {
+        background: linear-gradient(135deg, rgba(168, 85, 247, 0.22) 0%, rgba(168, 85, 247, 0.06) 100%) !important;
+        border-color: rgba(168, 85, 247, 0.5) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(168, 85, 247, 0.25) !important;
+    }
+    
+    div[data-testid="column"]:has(.qa-trigger-blue) div.stButton > button {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.03) 100%) !important;
+        border: 1px solid rgba(59, 130, 246, 0.25) !important;
+    }
+    div[data-testid="column"]:has(.qa-trigger-blue) div.stButton > button:hover {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0.06) 100%) !important;
+        border-color: rgba(59, 130, 246, 0.5) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.25) !important;
+    }
+    
+    div[data-testid="column"]:has(.qa-trigger-green) div.stButton > button {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.03) 100%) !important;
+        border: 1px solid rgba(16, 185, 129, 0.25) !important;
+    }
+    div[data-testid="column"]:has(.qa-trigger-green) div.stButton > button:hover {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0.06) 100%) !important;
+        border-color: rgba(16, 185, 129, 0.5) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25) !important;
+    }
+    
+    div[data-testid="column"]:has(.qa-trigger-yellow) div.stButton > button {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.03) 100%) !important;
+        border: 1px solid rgba(245, 158, 11, 0.25) !important;
+    }
+    div[data-testid="column"]:has(.qa-trigger-yellow) div.stButton > button:hover {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0.06) 100%) !important;
+        border-color: rgba(245, 158, 11, 0.5) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -311,17 +404,72 @@ def run_async(coro):
 # ----------------------------------------------------
 
 def show_home():
-    """Renders the Home Tab Layout containing Dashboard, Git VCS, and Code Search RAG."""
-    tab_overview, tab_git, tab_rag = st.tabs([
-        "📊 System Dashboard", "🐙 GitHub VCS Browser", "🔍 Code Search & RAG"
-    ])
+    """Renders the Home page matching the exact layout of 1. HOME DASHBOARD in reference.png."""
+    col_main_left, col_main_right = st.columns([5, 3])
     
-    # ------------------ TAB 1: OVERVIEW DASHBOARD ------------------
-    with tab_overview:
-        st.markdown('<div class="main-title">DevPilot AI Copilot</div>', unsafe_allow_html=True)
-        st.markdown('<div class="subtitle">Multi-Agent Collaborative Framework for Software Engineering</div>', unsafe_allow_html=True)
+    with col_main_left:
+        # Welcome back clean header (matching reference.png exactly, without bulky banner box)
+        st.markdown("""
+        <div style="margin-bottom: 24px;">
+            <h1 style="margin:0; font-weight:700; font-size:2.2rem; color:white; letter-spacing:-0.02em;">Welcome back, Developer! 👋</h1>
+            <p style="margin:4px 0 0 0; color:#94a3b8; font-size:0.95rem; font-weight:300;">Ready to build something amazing today?</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # 1. Stats Row
+        # Quick Actions Row
+        st.subheader("Quick Actions")
+        col_qa1, col_qa2, col_qa3, col_qa4 = st.columns(4)
+        with col_qa1:
+            st.markdown('<div class="qa-trigger-purple"></div>', unsafe_allow_html=True)
+            if st.button("💬\n**Ask AI Assistant**\nStart a conversation", key="qa_ask", use_container_width=True):
+                st.session_state.navigation_trigger = "💬 AI Assistant"
+                st.rerun()
+        with col_qa2:
+            st.markdown('<div class="qa-trigger-blue"></div>', unsafe_allow_html=True)
+            if st.button("🚀\n**Demo Scenarios**\nTry example tasks", key="qa_demo", use_container_width=True):
+                st.session_state.navigation_trigger = "🚀 Demo Center"
+                st.rerun()
+        with col_qa3:
+            st.markdown('<div class="qa-trigger-green"></div>', unsafe_allow_html=True)
+            if st.button("🐙\n**Upload Repository**\nAnalyze your codebase", key="qa_upload", use_container_width=True):
+                st.session_state.navigation_trigger = "🐙 GitHub Browser"
+                st.rerun()
+        with col_qa4:
+            st.markdown('<div class="qa-trigger-yellow"></div>', unsafe_allow_html=True)
+            if st.button("📊\n**View Analytics**\nCheck system stats", key="qa_analytics", use_container_width=True):
+                st.session_state.navigation_trigger = "📊 Analytics"
+                st.rerun()
+        
+        st.write("")
+        
+        # Agent Suite Overview Grid (4 columns, styled nicely to avoid vertical clutter)
+        st.subheader("Agent Suite Overview")
+        col_ag1, col_ag2, col_ag3, col_ag4 = st.columns(4)
+        agents_data = st.session_state.registry.list_agents()
+        agent_styles = {
+            "coding": {"emoji": "💻", "color": "#818cf8"},
+            "debugger": {"emoji": "🩺", "color": "#f87171"},
+            "documentation": {"emoji": "📝", "color": "#2dd4bf"},
+            "planning": {"emoji": "🗺️", "color": "#fbbf24"},
+            "repository": {"emoji": "🔍", "color": "#60a5fa"},
+            "terminal": {"emoji": "🐚", "color": "#34d399"},
+            "testing": {"emoji": "🧪", "color": "#f472b6"},
+        }
+        for idx, agent in enumerate(agents_data):
+            target_col = [col_ag1, col_ag2, col_ag3, col_ag4][idx % 4]
+            style = agent_styles.get(agent["key"], {"emoji": "🤖", "color": "#6366f1"})
+            with target_col:
+                st.markdown(f"""
+                <div class="agent-grid-card" style="margin-bottom:10px; padding:15px; background:rgba(22, 30, 49, 0.35); border-left:3px solid {style['color']}; border-radius:12px; border-top:1px solid rgba(255,255,255,0.03); border-right:1px solid rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.03); height: 110px; display:flex; flex-direction:column; justify-content:space-between;">
+                    <div class="agent-grid-name" style="font-size:0.92rem; font-weight:600; color:#e2e8f0; margin-bottom: 2px;">{style['emoji']} {agent['name']}</div>
+                    <div class="agent-grid-desc" style="font-size:0.75rem; color:#94a3b8; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;">{agent['description']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.write("")
+        
+        # Stats Summary Block
+        st.subheader("Stats Summary")
         total_reqs = len(st.session_state.response_times)
         avg_time = f"{sum(st.session_state.response_times) / total_reqs:.2f}s" if total_reqs > 0 else "0.00s"
         success_rate = "100.0%" if total_reqs > 0 else "0.0%"
@@ -329,134 +477,135 @@ def show_home():
         col_s1, col_s2, col_s3, col_s4 = st.columns(4)
         with col_s1:
             st.markdown(f"""
-            <div class="premium-card">
-                <div class="metric-title">Total Requests</div>
-                <div class="metric-value">{total_reqs}</div>
-                <div class="metric-delta up">▲ Active session</div>
+            <div class="premium-card" style="padding:16px; margin-bottom:0;">
+                <div class="metric-title" style="font-size:0.75rem;">Total Requests</div>
+                <div class="metric-value" style="font-size:1.8rem;">{total_reqs}</div>
+                <div class="metric-delta up" style="font-size:0.78rem;">▲ Active session</div>
             </div>
             """, unsafe_allow_html=True)
         with col_s2:
             st.markdown(f"""
-            <div class="premium-card">
-                <div class="metric-title">Successful Tasks</div>
-                <div class="metric-value">{total_reqs}</div>
-                <div class="metric-delta up">▲ {success_rate} success rate</div>
+            <div class="premium-card" style="padding:16px; margin-bottom:0;">
+                <div class="metric-title" style="font-size:0.75rem;">Successful Tasks</div>
+                <div class="metric-value" style="font-size:1.8rem;">{total_reqs}</div>
+                <div class="metric-delta up" style="font-size:0.78rem;">▲ {success_rate}</div>
             </div>
             """, unsafe_allow_html=True)
         with col_s3:
             st.markdown(f"""
-            <div class="premium-card">
-                <div class="metric-title">Active Agents</div>
-                <div class="metric-value">{len(st.session_state.registry.list_agents())}/7</div>
-                <div class="metric-delta up">● All operational</div>
+            <div class="premium-card" style="padding:16px; margin-bottom:0;">
+                <div class="metric-title" style="font-size:0.75rem;">Active Agents</div>
+                <div class="metric-value" style="font-size:1.8rem;">{len(agents_data)}/7</div>
+                <div class="metric-delta up" style="font-size:0.78rem;">● Operational</div>
             </div>
             """, unsafe_allow_html=True)
         with col_s4:
             st.markdown(f"""
-            <div class="premium-card">
-                <div class="metric-title">Avg. Response Time</div>
-                <div class="metric-value">{avg_time}</div>
-                <div class="metric-delta up">● Session average</div>
+            <div class="premium-card" style="padding:16px; margin-bottom:0;">
+                <div class="metric-title" style="font-size:0.75rem;">Avg. Response</div>
+                <div class="metric-value" style="font-size:1.8rem;">{avg_time}</div>
+                <div class="metric-delta up" style="font-size:0.78rem;">● Latency avg</div>
             </div>
             """, unsafe_allow_html=True)
             
-        # 2. Quick Actions
-        st.subheader("⚡ Quick Actions")
-        col_qa1, col_qa2, col_qa3, col_qa4 = st.columns(4)
-        with col_qa1:
-            if st.button("💬 Open AI Assistant", use_container_width=True):
-                st.session_state.navigation_trigger = "💬 AI Assistant"
-                st.rerun()
-        with col_qa2:
-            if st.button("🚀 Demo Scenarios Center", use_container_width=True):
-                st.session_state.navigation_trigger = "🚀 Demo Center"
-                st.rerun()
-        with col_qa3:
-            st.button("🐙 Repository VCS Tab", use_container_width=True, disabled=True)
-        with col_qa4:
-            if st.button("📊 View Analytics Usage", use_container_width=True):
-                st.session_state.navigation_trigger = "📊 Analytics"
-                st.rerun()
-
-        st.write("---")
-
-        # 3. Agent Suite Overview Grid
-        st.subheader("🤖 Agent Suite Overview")
-        col_ag1, col_ag2, col_ag3 = st.columns(3)
-        agents_data = st.session_state.registry.list_agents()
+    with col_main_right:
+        st.markdown('<div class="main-title" style="font-size:2.3rem; text-align:center; margin-top:10px;">DevPilot AI Copilot 🚀</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#a855f7; font-size:1.02rem; font-weight:600; text-align:center; margin-bottom:12px;">Multi-Agent Collaborative Framework for Software Engineering</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:0.88rem; color:#cbd5e1; line-height:1.5; text-align:center; margin-bottom:16px; padding: 0 10px;">DevPilot AI is a modular developer assistant that leverages specialized AI agents to understand, analyze, generate, and optimize code and project workflows.</div>', unsafe_allow_html=True)
         
-        for idx, agent in enumerate(agents_data):
-            target_col = col_ag1 if idx % 3 == 0 else (col_ag2 if idx % 3 == 1 else col_ag3)
-            with target_col:
-                st.markdown(f"""
-                <div class="agent-grid-card">
-                    <div class="agent-grid-name">🤖 {agent['name']} (key: {agent['key']})</div>
-                    <div class="agent-grid-desc">{agent['description']}</div>
+        # Badges row under description matching reference.png style
+        st.markdown("""
+        <div style="display:flex; justify-content:center; gap:8px; margin-bottom:20px; flex-wrap:wrap;">
+            <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.2); border-radius:20px; padding:4px 10px; font-size:0.7rem; color:#c084fc; font-weight:600; display:flex; align-items:center; gap:4px;">
+                🤖 7 Agents
+            </div>
+            <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.2); border-radius:20px; padding:4px 10px; font-size:0.7rem; color:#818cf8; font-weight:600; display:flex; align-items:center; gap:4px;">
+                ⚙️ Routing
+            </div>
+            <div style="background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.2); border-radius:20px; padding:4px 10px; font-size:0.7rem; color:#34d399; font-weight:600; display:flex; align-items:center; gap:4px;">
+                🧠 Memory
+            </div>
+            <div style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2); border-radius:20px; padding:4px 10px; font-size:0.7rem; color:#60a5fa; font-weight:600; display:flex; align-items:center; gap:4px;">
+                🌐 Multi-Model
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # How DevPilot AI Works Flowchart (Horizontal flowchart matching reference layout)
+        st.subheader("How DevPilot AI Works")
+        st.markdown("""
+        <div style="background:rgba(30,41,59,0.2); border:1px solid rgba(255,255,255,0.05); padding:16px 12px; border-radius:12px; margin-bottom:22px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:4px; flex-wrap:nowrap;">
+                <div style="flex:1; text-align:center;">
+                    <div style="background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.3); border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px auto; font-size:0.95rem; color:#c084fc;">💬</div>
+                    <div style="font-size:0.65rem; font-weight:600; color:#cbd5e1; line-height:1.2;">User Query</div>
                 </div>
-                """, unsafe_allow_html=True)
-
-        st.write("---")
-
-        # 4. Status & Recent Activity Row
+                <div style="color:#6366f1; font-weight:bold; font-size:0.8rem; padding-bottom:10px;">➔</div>
+                <div style="flex:1; text-align:center;">
+                    <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px auto; font-size:0.95rem; color:#818cf8;">⚙️</div>
+                    <div style="font-size:0.65rem; font-weight:600; color:#cbd5e1; line-height:1.2;">Intelligent Router</div>
+                </div>
+                <div style="color:#6366f1; font-weight:bold; font-size:0.8rem; padding-bottom:10px;">➔</div>
+                <div style="flex:1; text-align:center;">
+                    <div style="background:rgba(234,179,8,0.1); border:1px solid rgba(234,179,8,0.3); border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px auto; font-size:0.95rem; color:#facc15;">🤖</div>
+                    <div style="font-size:0.65rem; font-weight:600; color:#cbd5e1; line-height:1.2;">Selects Agent</div>
+                </div>
+                <div style="color:#6366f1; font-weight:bold; font-size:0.8rem; padding-bottom:10px;">➔</div>
+                <div style="flex:1; text-align:center;">
+                    <div style="background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px auto; font-size:0.95rem; color:#4ade80;">⚡</div>
+                    <div style="font-size:0.65rem; font-weight:600; color:#cbd5e1; line-height:1.2;">Agent Run</div>
+                </div>
+                <div style="color:#6366f1; font-weight:bold; font-size:0.8rem; padding-bottom:10px;">➔</div>
+                <div style="flex:1; text-align:center;">
+                    <div style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; margin:0 auto 6px auto; font-size:0.95rem; color:#60a5fa;">💾</div>
+                    <div style="font-size:0.65rem; font-weight:600; color:#cbd5e1; line-height:1.2;">Response + Mem</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # System Status and Recent Activity arranged Side-by-Side to prevent vertical clutter
         col_status, col_activity = st.columns(2)
+        
         with col_status:
-            st.subheader("🟢 System Status")
+            st.subheader("System Status")
             for agent in agents_data:
                 st.markdown(f"""
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
-                    <span style="font-weight:600; color:#e2e8f0;">{agent['name']}</span>
-                    <span class="status-badge active">🟢 Online</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03); font-size:0.8rem;">
+                    <span style="font-weight:500; color:#cbd5e1;">{agent['name']}</span>
+                    <span class="status-badge active" style="font-size:0.65rem; padding:1px 6px;">🟢 Online</span>
                 </div>
                 """, unsafe_allow_html=True)
                 
         with col_activity:
-            st.subheader("⏱️ Recent Activity")
+            st.subheader("Recent Activity")
             recent_activities = [
-                {"prompt": "Generate CRUD API for user management", "agent": "Coding Agent", "time": "2m ago"},
-                {"prompt": "Debug this Python function", "agent": "Debugger Agent", "time": "5m ago"},
-                {"prompt": "Create README for this project", "agent": "Documentation Agent", "time": "9m ago"},
-                {"prompt": "Analyze repository structure", "agent": "Repository Explainer", "time": "12m ago"},
-                {"prompt": "Create project roadmap", "agent": "Planning Agent", "time": "15m ago"}
+                {"prompt": "Generate CRUD API", "agent": "Coding", "time": "2m ago"},
+                {"prompt": "Debug Python script", "agent": "Debugger", "time": "5m ago"},
+                {"prompt": "Create project README", "agent": "Docs", "time": "9m ago"},
+                {"prompt": "Analyze local repository", "agent": "Explainer", "time": "12m ago"}
             ]
             for act in recent_activities:
                 st.markdown(f"""
-                <div class="activity-row">
-                    <span><strong>{act['prompt']}</strong> ({act['agent']})</span>
-                    <span class="activity-time">{act['time']}</span>
+                <div class="activity-row" style="padding:6px 0; font-size:0.8rem; border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; display: inline-block; color:#cbd5e1;"><strong>{act['prompt']}</strong></span>
+                    <span class="activity-time" style="font-size:0.7rem; float: right; padding-top:2px;">{act['time']}</span>
                 </div>
                 """, unsafe_allow_html=True)
 
-        st.write("---")
 
-        # 5. How DevPilot AI Works Flowchart
-        st.subheader("⚙️ How DevPilot AI Works")
-        col_f1, col_f2, col_f3, col_f4, col_f5, col_f6, col_f7, col_f8, col_f9 = st.columns([3, 1, 3, 1, 3, 1, 3, 1, 3])
-        with col_f1:
-            st.markdown('<div class="flow-step-box">👤 User Query</div>', unsafe_allow_html=True)
-        with col_f2:
-            st.markdown('<div class="flow-arrow-right">➔</div>', unsafe_allow_html=True)
-        with col_f3:
-            st.markdown('<div class="flow-step-box">⚙️ Intelligent Router</div>', unsafe_allow_html=True)
-        with col_f4:
-            st.markdown('<div class="flow-arrow-right">➔</div>', unsafe_allow_html=True)
-        with col_f5:
-            st.markdown('<div class="flow-step-box">🤖 Selects Best Agent</div>', unsafe_allow_html=True)
-        with col_f6:
-            st.markdown('<div class="flow-arrow-right">➔</div>', unsafe_allow_html=True)
-        with col_f7:
-            st.markdown('<div class="flow-step-box">⚡ Agent Execution</div>', unsafe_allow_html=True)
-        with col_f8:
-            st.markdown('<div class="flow-arrow-right">➔</div>', unsafe_allow_html=True)
-        with col_f9:
-            st.markdown('<div class="flow-step-box">💾 Response + Memory</div>', unsafe_allow_html=True)
+def show_github_browser_page():
+    """VCS Browser sidebar page wrapper."""
+    st.markdown('<div class="main-title">GitHub Browser</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Inspect branch logs, pull requests, issues, and commit files</div>', unsafe_allow_html=True)
+    show_github_browser()
 
-    # ------------------ TAB 2: GITHUB VCS BROWSER ------------------
-    with tab_git:
-        show_github_browser()
-        
-    # ------------------ TAB 3: CODE RAG SEARCH ------------------
-    with tab_rag:
-        show_analyzer()
+
+def show_analyzer_page():
+    """Code Search & RAG sidebar page wrapper."""
+    st.markdown('<div class="main-title">Code Search & RAG</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Index local codebase file content and perform semantic term matches</div>', unsafe_allow_html=True)
+    show_analyzer()
 
 
 def show_assistant():
@@ -1280,6 +1429,8 @@ st.sidebar.title("🧭 Navigation")
 sidebar_pages = {
     "🏠 Home": show_home,
     "💬 AI Assistant": show_assistant,
+    "🐙 GitHub Browser": show_github_browser_page,
+    "🔍 Code Search": show_analyzer_page,
     "🤖 Agents": show_agents_suite,
     "🚀 Demo Center": show_demo_scenarios,
     "🌿 Workflows": show_workflow_viz,
