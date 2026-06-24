@@ -6,6 +6,7 @@ from agents.documentation_agent import DocumentationAgent
 from agents.planning_agent import PlanningAgent
 from agents.repository_explainer import RepositoryExplainer
 from agents.terminal_assistant import TerminalAssistant
+from agents.testing_agent import TestingAgent
 
 def test_agents_loading():
     llm = LLMProvider()
@@ -33,6 +34,10 @@ def test_agents_loading():
     terminal = TerminalAssistant(llm)
     assert terminal.name == "Terminal Assistant Agent"
     assert "systems administrator" in terminal.system_prompt
+    
+    testing = TestingAgent(llm)
+    assert testing.name == "Testing Agent"
+    assert "software quality engineer" in testing.system_prompt
 
 def test_agent_execution_offline():
     llm = LLMProvider()

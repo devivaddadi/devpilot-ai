@@ -21,7 +21,9 @@ class TaskRouter:
             "powershell": "terminal",
             "bash": "terminal",
             "fastapi": "coding",
-            "flask": "coding"
+            "flask": "coding",
+            "pytest": "testing",
+            "unittest": "testing"
         }
         
         # Tier 2: Specific Action & Agent Nouns (Debugger verbs, Doc terms, Planning roadmaps, etc.)
@@ -35,6 +37,11 @@ class TaskRouter:
             "failing": "debugger",
             "crash": "debugger",
             "broken": "debugger",
+            
+            # Testing
+            "test": "testing",
+            "testing": "testing",
+            "coverage": "testing",
             
             # Documentation
             "readme": "documentation",
@@ -203,7 +210,7 @@ class TaskRouter:
         system_instruction = (
             "You are the Task Router for DevPilot AI. Your job is to classify developer requests "
             "into one of these exact keys: 'coding', 'debugger', 'documentation', 'planning', "
-            "'repository', 'terminal'. Return ONLY the single key name in lowercase, with no explanation or markup."
+            "'repository', 'terminal', 'testing'. Return ONLY the single key name in lowercase, with no explanation or markup."
         )
         
         user_prompt = f"Classify this developer request: '{prompt}'"
@@ -213,7 +220,7 @@ class TaskRouter:
             cleaned = response.strip().lower()
             
             # Verify response is valid
-            valid_keys = {"coding", "debugger", "documentation", "planning", "repository", "terminal"}
+            valid_keys = {"coding", "debugger", "documentation", "planning", "repository", "terminal", "testing"}
             for key in valid_keys:
                 if key in cleaned:
                     return key

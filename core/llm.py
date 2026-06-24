@@ -37,7 +37,8 @@ class LLMProvider:
             return self._generate_offline(prompt, system_instruction)
 
     def _generate_gemini(self, prompt: str, system_instruction: str) -> str:
-        """Call Google Gemini API using httpx."""
+        """Call Google Gemini API using httpx with exponential backoff retry logic."""
+        import time
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.gemini_key}"
         headers = {"Content-Type": "application/json"}
         
@@ -54,27 +55,46 @@ class LLMProvider:
                 "parts": [{"text": system_instruction}]
             }
 
-        try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
-                
-                # Extract response text
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        return parts[0].get("text", "")
-                
-                return "Error: Empty response from Gemini API."
-        except Exception as e:
-            logger.error(f"Gemini API invocation failed: {e}")
-            logger.info("Falling back to offline response generation.")
-            return self._generate_offline(prompt, system_instruction) + f"\n\n*(Note: Attempted Gemini API call but fell back due to error: {e})*"
+        max_retries = 3
+        initial_delay = 1.0
+        backoff_factor = 2.0
+        
+        for attempt in range(max_retries + 1):
+            try:
+                with httpx.Client(timeout=30.0) as client:
+                    response = client.post(url, headers=headers, json=payload)
+                    
+                    # If server is overloaded (503) or rate-limited (429), sleep and retry
+                    if response.status_code in (429, 503) and attempt < max_retries:
+                        delay = initial_delay * (backoff_factor ** attempt)
+                        logger.warning(f"Gemini API returned status {response.status_code}. Retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                        time.sleep(delay)
+                        continue
+                        
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    # Extract response text
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            return parts[0].get("text", "")
+                    
+                    return "Error: Empty response from Gemini API."
+            except Exception as e:
+                if attempt < max_retries:
+                    delay = initial_delay * (backoff_factor ** attempt)
+                    logger.warning(f"Gemini API attempt {attempt + 1} failed: {e}. Retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"Gemini API invocation failed after {max_retries + 1} attempts: {e}")
+                    logger.info("Falling back to offline response generation.")
+                    return self._generate_offline(prompt, system_instruction) + f"\n\n*(Note: Attempted Gemini API call but fell back due to error: {e})*"
 
     def _generate_openai(self, prompt: str, system_instruction: str) -> str:
-        """Call OpenAI API using httpx."""
+        """Call OpenAI API using httpx with exponential backoff retry logic."""
+        import time
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
@@ -92,21 +112,39 @@ class LLMProvider:
             "temperature": 0.7
         }
 
-        try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                data = response.json()
-                
-                choices = data.get("choices", [])
-                if choices:
-                    return choices[0].get("message", {}).get("content", "")
-                
-                return "Error: Empty response from OpenAI API."
-        except Exception as e:
-            logger.error(f"OpenAI API invocation failed: {e}")
-            logger.info("Falling back to offline response generation.")
-            return self._generate_offline(prompt, system_instruction) + f"\n\n*(Note: Attempted OpenAI API call but fell back due to error: {e})*"
+        max_retries = 3
+        initial_delay = 1.0
+        backoff_factor = 2.0
+
+        for attempt in range(max_retries + 1):
+            try:
+                with httpx.Client(timeout=30.0) as client:
+                    response = client.post(url, headers=headers, json=payload)
+                    
+                    # If server is rate-limited (429) or has internal/gateway issue (502, 503, 504), sleep and retry
+                    if response.status_code in (429, 502, 503, 504) and attempt < max_retries:
+                        delay = initial_delay * (backoff_factor ** attempt)
+                        logger.warning(f"OpenAI API returned status {response.status_code}. Retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})...")
+                        time.sleep(delay)
+                        continue
+                        
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    choices = data.get("choices", [])
+                    if choices:
+                        return choices[0].get("message", {}).get("content", "")
+                    
+                    return "Error: Empty response from OpenAI API."
+            except Exception as e:
+                if attempt < max_retries:
+                    delay = initial_delay * (backoff_factor ** attempt)
+                    logger.warning(f"OpenAI API attempt {attempt + 1} failed: {e}. Retrying in {delay:.1f}s...")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"OpenAI API invocation failed after {max_retries + 1} attempts: {e}")
+                    logger.info("Falling back to offline response generation.")
+                    return self._generate_offline(prompt, system_instruction) + f"\n\n*(Note: Attempted OpenAI API call but fell back due to error: {e})*"
 
     def _generate_offline(self, prompt: str, system_instruction: str) -> str:
         """

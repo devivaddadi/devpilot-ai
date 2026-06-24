@@ -35,8 +35,8 @@ def test_agent_registry():
     registry = AgentRegistry(llm)
     
     agents = registry.list_agents()
-    # Should contain 6 default agents
-    assert len(agents) == 6
+    # Should contain 7 default agents
+    assert len(agents) == 7
     
     keys = [item["key"] for item in agents]
     assert "coding" in keys
@@ -45,6 +45,7 @@ def test_agent_registry():
     assert "planning" in keys
     assert "repository" in keys
     assert "terminal" in keys
+    assert "testing" in keys
     
     # Test retrieving agent
     coding_agent = registry.get_agent("coding")
@@ -65,6 +66,7 @@ def test_task_router():
     assert router.route("Create roadmap for my job portal") == "planning"
     assert router.route("Explain this repository folder structure") == "repository"
     assert router.route("Why is docker container failing to start?") == "terminal"
+    assert router.route("Write pytest unit tests for the oauth service") == "testing"
     
     # Test default fallback route
     assert router.route("unknown gibberish query pattern") == "coding"

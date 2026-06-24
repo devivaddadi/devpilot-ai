@@ -7,6 +7,7 @@ from agents.documentation_agent import DocumentationAgent
 from agents.planning_agent import PlanningAgent
 from agents.repository_explainer import RepositoryExplainer
 from agents.terminal_assistant import TerminalAssistant
+from agents.testing_agent import TestingAgent
 from core.llm import LLMProvider
 
 logger = logging.getLogger("devpilot.core.registry")
@@ -45,10 +46,11 @@ class AgentRegistry:
         return self._agents
 
     def _register_default_agents(self) -> None:
-        """Register the 6 default specialized developer agents."""
+        """Register the 7 default specialized developer agents."""
         self.register("coding", CodingAgent(self.llm_provider))
         self.register("debugger", DebuggerAgent(self.llm_provider))
         self.register("documentation", DocumentationAgent(self.llm_provider))
         self.register("planning", PlanningAgent(self.llm_provider))
         self.register("repository", RepositoryExplainer(self.llm_provider))
         self.register("terminal", TerminalAssistant(self.llm_provider))
+        self.register("testing", TestingAgent(self.llm_provider))
