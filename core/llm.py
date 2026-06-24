@@ -292,20 +292,224 @@ DevPilot AI is an AI-powered developer copilot that coordinates specialized agen
 
         # 4. Planning Agent Fallback
         elif "planning agent" in sys_lower:
-            return """### Planning Agent Response (Offline Mode)
+            # Check prompt for specific domains
+            if any(k in prompt_lower for k in ["placement", "college", "tpo", "student portal"]):
+                return """### Planning Agent Response (Offline Mode - College Placement Portal)
 
-Here is an architectural roadmap and task breakdown for building your application:
+#### 📋 Identified Domain: College Placement Portal
+An online platform connecting students, companies, and training & placement officers (TPOs) to automate placements.
 
-| Phase | Description | Key Deliverables | Tasks |
-|:---|:---|:---|:---|
-| **Phase 1: Setup** | Environment & DB Boilerplate | Setup SQL schema & Docker | - Initialize Git<br>- Setup configuration settings<br>- Create base PostgreSQL migration schemas |
-| **Phase 2: Core** | Business Logic API | Endpoints & Service logic | - Build Auth service (JWT)<br>- Setup database CRUD methods<br>- Integrate background tasks |
-| **Phase 3: Integration** | Multi-Agent Coordination | Task Router & Registry | - Register system agents<br>- Deploy local execution client |
+#### 👥 User Roles:
+1. **Student**: Updates profile, uploads resume, browses jobs, and tracks applications.
+2. **TPO (Admin)**: Manages placement drives, verifies student data, and schedules rounds.
+3. **Company Recruiter**: Posts vacancies, views profiles, shortlists applicants, and records offers.
 
-#### Key Risks & Mitigations:
-- **Authentication Bloat**: Mitigate by using lightweight JWT tokens with auto-expiry.
-- **DB Scalability**: Ensure indexes are added early on search queries.
+#### ⚙️ Core Modules:
+* **Authentication**: JWT-based secure sign-on for multiple roles.
+* **Student Profile Builder**: CGPA, branch, resume links, and skill list.
+* **Placement Drives**: CRUD API for recruiters/TPOs to publish drives.
+* **Job Application Pipeline**: Student application dashboard and status tracker.
+
+#### 🗄️ Database Entities (PostgreSQL):
+* `users` (id, email, password_hash, role)
+* `students` (user_id, branch, cgpa, resume_url)
+* `companies` (id, name, industry, website)
+* `placement_drives` (id, company_id, role_title, eligibility_criteria_cgpa, salary_package)
+* `applications` (id, student_id, drive_id, status)
+* `interviews` (id, application_id, round_name, scheduled_time)
+
+#### 🌿 Key Workflow:
+1. **Drive Publication**: Recruiter creates `placement_drives` with `eligibility_criteria_cgpa >= 7.5`.
+2. **Apply Phase**: Students with CGPA >= 7.5 view and apply for the drive.
+3. **Application Review**: TPO approves candidates.
+4. **Shortlisting**: Recruiter logs round statuses inside `interviews`.
+
+#### 🚀 Recommended Technology Stack:
+* **Backend**: FastAPI (Python)
+* **Frontend**: React (TypeScript)
+* **Database**: PostgreSQL
+* **Containerization**: Docker Compose
 """
+
+            elif any(k in prompt_lower for k in ["e-commerce", "shopping", "ecommerce", "store", "product"]):
+                return """### Planning Agent Response (Offline Mode - E-Commerce Platform)
+
+#### 📋 Identified Domain: E-Commerce Platform
+A highly scalable online retail storefront supporting merchant inventories, shopping carts, and secure checkouts.
+
+#### 👥 User Roles:
+1. **Buyer**: Searches items, manages cart, checkouts, and views order history.
+2. **Seller**: Manages product listings, views sales metrics, and updates inventory.
+3. **Admin**: Manages categories, flags users, and processes refund audits.
+
+#### ⚙️ Core Modules:
+* **Catalog Management**: Elastic-searchable product indexing and reviews.
+* **Cart & Checkout**: Stateful local or Redis-cached shopping carts.
+* **Order Orchestration**: State machine tracking order states (pending, paid, shipped).
+* **Payment Gateway**: Integration with Stripe APIs for checkout flows.
+
+#### 🗄️ Database Entities (MongoDB/PostgreSQL):
+* `users` (id, email, address, payment_methods)
+* `products` (id, seller_id, title, description, price, inventory_stock)
+* `orders` (id, buyer_id, total_amount, payment_status, shipping_status)
+* `order_items` (id, order_id, product_id, quantity, unit_price)
+* `reviews` (id, product_id, user_id, rating, comment)
+
+#### 🌿 Key Workflow:
+1. **Cart Checkout**: Buyer submits cart checkout request.
+2. **Payment Authorization**: Stripe Webhook triggers transaction confirmation.
+3. **Inventory Decrement**: System updates `products.inventory_stock = inventory_stock - quantity`.
+4. **Fulfillment**: System alerts Seller to ship order.
+
+#### 🚀 Recommended Technology Stack:
+* **Backend**: Node.js (Express) or NestJS
+* **Frontend**: Next.js (React)
+* **Database**: MongoDB (Flexible catalog) + Redis (Session/Cart)
+* **Payment Gateway**: Stripe SDK
+"""
+
+            elif any(k in prompt_lower for k in ["hospital", "clinic", "patient", "doctor", "health"]):
+                return """### Planning Agent Response (Offline Mode - Hospital Management System)
+
+#### 📋 Identified Domain: Hospital Management System
+A HIPAA-compliant medical enterprise application managing patient registries, appointments, and billing.
+
+#### 👥 User Roles:
+1. **Patient**: Registers profiles, schedules doctor visits, and reads prescription receipts.
+2. **Doctor**: Reviews patient history records, logs diagnosis, and writes prescriptions.
+3. **Receptionist**: Registers check-ins, allocates consultation slots, and processes payments.
+4. **Pharmacist**: Manages drug inventories and dispenses items.
+
+#### ⚙️ Core Modules:
+* **Patient Portal**: Profile management, registration, and booking schedules.
+* **Electronic Health Records (EHR)**: Encrypted medical record logs and diagnoses.
+* **Billing System**: Invoice ledger computing consultant fees, room rent, and medicine costs.
+* **Ward Allocation**: Tracking occupied bed vacancies.
+
+#### 🗄️ Database Entities (PostgreSQL/SQL Server):
+* `patients` (id, name, date_of_birth, contact_info)
+* `doctors` (id, name, specialization, consultation_fee)
+* `appointments` (id, patient_id, doctor_id, slot_time, status)
+* `medical_records` (id, patient_id, doctor_id, diagnosis, prescription_details)
+* `invoices` (id, patient_id, total_fee, tax, payment_status)
+
+#### 🌿 Key Workflow:
+1. **Booking slot**: Patient selects date/doctor and creates `appointments`.
+2. **Doctor consultation**: Doctor reviews `medical_records` and appends current visit diagnosis.
+3. **Ledger generation**: Receptionist issues patient bill linking `consultation_fee` and medicines.
+
+#### 🚀 Recommended Technology Stack:
+* **Backend**: Django (Python) or Spring Boot (Java)
+* **Frontend**: Angular (TypeScript)
+* **Database**: PostgreSQL (with encrypt-at-rest modules)
+* **API Security**: OAuth2 with active audit logs
+"""
+
+            elif any(k in prompt_lower for k in ["library", "book", "librarian"]):
+                return """### Planning Agent Response (Offline Mode - Library Management System)
+
+#### 📋 Identified Domain: Library Management System
+An administrative records manager automating book catalogs, borrowing logs, and fine assessments.
+
+#### 👥 User Roles:
+1. **Member (Student/Teacher)**: Browses catalog, reserves books, and tracks return deadlines.
+2. **Librarian**: Issues/returns books, updates catalog copies, and processes overdue fines.
+3. **Admin**: Oversees memberships and handles settings.
+
+#### ⚙️ Core Modules:
+* **Book Inventory**: ISBN-based indexing, categorization, and physical location mapping.
+* **Borrowing Pipeline**: Tracking checkouts, return due dates, and renewals.
+* **Reservation Engine**: Queue management for highly demanded titles.
+* **Fine Calculator**: Scheduled task calculating overdue charges.
+
+#### 🗄️ Database Entities (MySQL/PostgreSQL):
+* `books` (isbn, title, author, category, copies_total, copies_available)
+* `members` (id, name, email, registration_date, status)
+* `borrow_records` (id, member_id, isbn, borrow_date, due_date, return_date)
+* `fines` (id, borrow_record_id, amount, status)
+* `reservations` (id, member_id, isbn, reservation_date, status)
+
+#### 🌿 Key Workflow:
+1. **Search & Reserve**: Member reserves an unavailable book, appending to queue.
+2. **Checkout**: Book returned; next reserving member receives alert. Librarian logs `borrow_records`.
+3. **Overdue Check**: If `current_date > due_date` and `return_date` is null, daily cron task appends value to `fines`.
+
+#### 🚀 Recommended Technology Stack:
+* **Backend**: Spring Boot (Java) or ASP.NET Core (C#)
+* **Frontend**: Vue.js or React
+* **Database**: MySQL
+* **Scheduler**: Spring Batch / Quartz Scheduler (for daily overdue fine cron jobs)
+"""
+
+            elif any(k in prompt_lower for k in ["food", "delivery", "restaurant", "order"]):
+                return """### Planning Agent Response (Offline Mode - Food Delivery Application)
+
+#### 📋 Identified Domain: Food Delivery Application
+A real-time, location-based food ordering network coordinating customers, kitchens, and couriers.
+
+#### 👥 User Roles:
+1. **Customer**: Lists restaurant menus, places orders, and tracks courier coordinates.
+2. **Restaurant Manager**: Updates menu prices, accepts orders, and signals cook milestones.
+3. **Delivery Partner**: Receives route dispatch alerts, updates status, and shares GPS telemetry.
+
+#### ⚙️ Core Modules:
+* **Menu Listings**: Dynamic catalog with category grouping, dietary tags, and prices.
+* **Order Pipeline**: State tracking: Pending ➔ Cooking ➔ Dispatched ➔ Delivered.
+* **Telemetry Routing**: Real-time geolocation coordinates shared via WebSockets.
+* **Notification Dispatcher**: Alerts users of transit status updates.
+
+#### 🗄️ Database Entities (MongoDB/PostgreSQL):
+* `users` (id, email, phone, address_coordinates)
+* `restaurants` (id, name, location_coordinates, rating)
+* `menu_items` (id, restaurant_id, item_name, description, price)
+* `orders` (id, customer_id, restaurant_id, status, subtotal, delivery_fee)
+* `order_items` (id, order_id, menu_item_id, quantity)
+* `delivery_routes` (id, order_id, driver_id, start_location, current_location)
+
+#### 🌿 Key Workflow:
+1. **Submission**: Customer orders food; kitchen accepts order and updates status to `preparing`.
+2. **Dispatch**: Order packed; system finds nearest available courier using geolocation distance match.
+3. **Telemetry**: Courier updates progress; WebSockets stream longitude/latitude to Customer UI.
+
+#### 🚀 Recommended Technology Stack:
+* **Backend**: Node.js (with Socket.io) or Go (Golang)
+* **Frontend**: React Native or Flutter (Mobile native focus)
+* **Database**: PostgreSQL (with PostGIS extensions for spatial queries)
+* **Live In-Memory Geolocation Tracking**: Redis (geospatial indexes)
+"""
+
+            else:
+                # Dynamically try to infer a domain or fallback cleanly
+                words = [w.title() for w in prompt_lower.replace("create", "").replace("build", "").replace("want to", "").split() if len(w) > 3][:4]
+                guessed_domain = " ".join(words) if words else "Custom Service Web App"
+                return f"""### Planning Agent Response (Offline Mode - Custom Domain)
+
+#### 📋 Identified Domain: {guessed_domain}
+A custom service application engineered to support specialized database schemas and user management workflows.
+
+#### 👥 User Roles:
+1. **User (Customer)**: Invokes primary core service actions and views custom listings.
+2. **Staff (Manager)**: Administers operations and resolves request items.
+3. **Administrator**: Full system oversight, security policy settings, and configuration mappings.
+
+#### ⚙️ Core Modules:
+* **Identity Management**: Secure authentication & RBAC (Role-Based Access Control) schemas.
+* **Record Intake**: Custom CRUD actions mapping business entity transactions.
+* **Search Engine**: Terms matching filtering with custom fields.
+* **Analytics Panel**: Aggregates usage reports and logs stats.
+
+#### 🗄️ Database Entities (Relational PostgreSQL):
+* `users` (id, email, password_hash, role_type, created_at)
+* `records` (id, user_id, title, payload_json, status_label)
+* `action_logs` (id, actor_id, record_id, action_taken, timestamp)
+
+#### 🚀 Recommended Technology Stack:
+* **Backend**: FastAPI (Python) or Spring Boot (Java)
+* **Frontend**: Next.js / React (TypeScript)
+* **Database**: PostgreSQL
+* **API Integration**: REST API endpoints mapping JSON schema payloads
+"""
+
 
         # 5. Repository Explainer Fallback
         elif "repository explainer" in sys_lower:
