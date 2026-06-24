@@ -111,6 +111,69 @@ class TaskRouter:
         logger.info("Defaulting route to 'coding' agent.")
         return "coding"
 
+    def route_detailed(self, prompt: str) -> Dict[str, Any]:
+        """
+        Routes the prompt to the best agent and returns explanation details.
+        """
+        prompt_lower = prompt.lower()
+        
+        # Tier 1
+        sorted_t1 = sorted(self.tier1_mapping.keys(), key=len, reverse=True)
+        for keyword in sorted_t1:
+            if keyword in prompt_lower:
+                return {
+                    "agent": self.tier1_mapping[keyword],
+                    "method": "Keyword Matching",
+                    "tier": "Tier 1: Technologies & Platforms",
+                    "matched_keyword": keyword,
+                    "explanation": f"Matched tool/technology '{keyword}' which maps directly to the '{self.tier1_mapping[keyword]}' agent."
+                }
+                
+        # Tier 2
+        sorted_t2 = sorted(self.tier2_mapping.keys(), key=len, reverse=True)
+        for keyword in sorted_t2:
+            if keyword in prompt_lower:
+                return {
+                    "agent": self.tier2_mapping[keyword],
+                    "method": "Keyword Matching",
+                    "tier": "Tier 2: Actions & Agent Nouns",
+                    "matched_keyword": keyword,
+                    "explanation": f"Matched specific action/noun '{keyword}' which maps directly to the '{self.tier2_mapping[keyword]}' agent."
+                }
+                
+        # Tier 3
+        sorted_t3 = sorted(self.tier3_mapping.keys(), key=len, reverse=True)
+        for keyword in sorted_t3:
+            if keyword in prompt_lower:
+                return {
+                    "agent": self.tier3_mapping[keyword],
+                    "method": "Keyword Matching",
+                    "tier": "Tier 3: Generic Developer Verbs/Nouns",
+                    "matched_keyword": keyword,
+                    "explanation": f"Matched generic developer verb/noun '{keyword}' which maps directly to the '{self.tier3_mapping[keyword]}' agent."
+                }
+                
+        # Fallback to LLM semantic routing
+        if self.llm_provider.mode != "offline":
+            semantic_route = self._query_llm_route(prompt)
+            if semantic_route:
+                return {
+                    "agent": semantic_route,
+                    "method": "LLM Semantic Analysis",
+                    "tier": "N/A (Semantic fallback)",
+                    "matched_keyword": None,
+                    "explanation": f"No keywords matched. LLM classified query semantically to the '{semantic_route}' agent."
+                }
+                
+        # Default fallback
+        return {
+            "agent": "coding",
+            "method": "Default Fallback",
+            "tier": "N/A (Standard fallback)",
+            "matched_keyword": None,
+            "explanation": "No keywords matched and system is offline or LLM routing failed. Defaulted to the 'coding' agent."
+        }
+
     def _check_keywords(self, prompt: str) -> Optional[str]:
         """Checks for keyword occurrences inside the user prompt."""
         prompt_lower = prompt.lower()

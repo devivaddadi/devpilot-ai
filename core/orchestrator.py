@@ -32,8 +32,9 @@ class AgentOrchestrator:
         """
         logger.info(f"Received request: '{prompt[:60]}...'")
         
-        # 1. Route the task to the correct agent key
-        agent_key = self.router.route(prompt)
+        # 1. Route the task to the correct agent key with detailed information
+        routing_details = self.router.route_detailed(prompt)
+        agent_key = routing_details["agent"]
         
         # 2. Retrieve agent instance from registry
         agent = self.registry.get_agent(agent_key)
@@ -58,7 +59,8 @@ class AgentOrchestrator:
             "routed_agent_key": agent_key,
             "routed_agent_name": agent.name,
             "response": response,
-            "memory_messages_count": len(self.memory.get_history())
+            "memory_messages_count": len(self.memory.get_history()),
+            "routing_details": routing_details
         }
         
         logger.info("Request processed successfully.")
