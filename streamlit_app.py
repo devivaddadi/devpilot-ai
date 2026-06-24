@@ -2,7 +2,8 @@ import os
 import sys
 import logging
 import json
-from typing import Dict, Any, List
+import asyncio
+from typing import Dict, Any, List, Optional
 
 # Ensure UTF-8 output encoding on Windows consoles
 if sys.platform == "win32":
@@ -29,10 +30,12 @@ from core.memory import ConversationMemory
 from core.registry import AgentRegistry
 from core.router import TaskRouter
 from core.orchestrator import AgentOrchestrator
+from core.github import GitHubClient
+from core.analyzer import CodeAnalyzer
 
 # Set up Streamlit Page Configuration
 st.set_page_config(
-    page_title="DevPilot AI | Multi-Agent Dashboard",
+    page_title="DevPilot AI | Unified Agent Workspace",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -41,7 +44,6 @@ st.set_page_config(
 # Premium Global Styling Injection
 st.markdown("""
 <style>
-    /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@300;400;700&display=swap');
     
     html, body, [class*="css"] {
@@ -52,9 +54,8 @@ st.markdown("""
         font-family: 'JetBrains Mono', monospace !important;
     }
 
-    /* Premium Theme & Colors */
     .main-title {
-        background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 50%, #4338ca 100%);
+        background: linear-gradient(135deg, #c084fc 0%, #6366f1 50%, #3b82f6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 800;
@@ -69,7 +70,6 @@ st.markdown("""
         font-weight: 300;
     }
     
-    /* Sleek Cards */
     .premium-card {
         background: rgba(30, 41, 59, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.08);
@@ -101,39 +101,27 @@ st.markdown("""
         font-weight: 600;
         color: #818cf8;
         margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
     }
-    
-    /* Badge Status */
-    .status-badge {
+
+    .badge-git {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
+        padding: 3px 10px;
         border-radius: 9999px;
         font-size: 0.75rem;
         font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
     }
-    .status-badge.active {
+    .badge-git.open {
         background-color: rgba(16, 185, 129, 0.15);
         color: #34d399;
         border: 1px solid rgba(16, 185, 129, 0.3);
     }
-    .status-badge.offline {
+    .badge-git.closed {
         background-color: rgba(239, 68, 68, 0.15);
         color: #f87171;
         border: 1px solid rgba(239, 68, 68, 0.3);
     }
-    .status-badge.info {
-        background-color: rgba(99, 102, 241, 0.15);
-        color: #818cf8;
-        border: 1px solid rgba(99, 102, 241, 0.3);
-    }
-
-    /* Workflow Diagram Styling */
+    
     .flow-container {
         display: flex;
         flex-direction: column;
@@ -163,10 +151,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 1. State Management & Core Core Loading
+# 1. State Management & Core Loader
 # ----------------------------------------------------
 def init_devpilot_session():
-    """Initializes the backend agent orchestrator inside Streamlit Session State."""
+    """Initializes the backend agent orchestrator and services inside Session State."""
     if "orchestrator" not in st.session_state:
         try:
             logger.info("Initializing DevPilot AI backend services.")
@@ -183,110 +171,82 @@ def init_devpilot_session():
             st.session_state.orchestrator = orchestrator
             st.session_state.last_routed_details = None
             st.session_state.last_response = None
-            st.session_state.multi_agent_steps = None
+            
+            # GitHub Client State
+            token = os.getenv("GITHUB_TOKEN") or os.getenv("GITHUB_API_KEY")
+            st.session_state.github_client = GitHubClient(token)
+            st.session_state.repositories = []
+            
+            # Code Analyzer State
+            st.session_state.analyzer = CodeAnalyzer(os.getcwd())
+            st.session_state.analyzer_indexed = False
         except Exception as e:
             st.error(f"Failed to initialize DevPilot AI Core: {e}")
             logger.error(f"Session initialization failure: {e}", exc_info=True)
 
 init_devpilot_session()
 
+# Helper for run-async inside Streamlit
+def run_async(coro):
+    return asyncio.run(coro)
+
 # ----------------------------------------------------
 # 2. Page Renderers
 # ----------------------------------------------------
 
 def show_home():
-    """Renders the Home Welcome Dashboard Page."""
-    st.markdown('<div class="main-title">DevPilot AI Copilot</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Multi-Agent Collaborative Framework for Software Engineering</div>', unsafe_allow_html=True)
+    """Renders the Welcome Dashboard Page."""
+    st.markdown('<div class="main-title">DevPilot AI Unified Workspace</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">An integrated interface for Multi-Agent AI Assistance, Git Operations, and Code Search</div>', unsafe_allow_html=True)
     
     st.markdown("""
-    ### Welcome to DevPilot AI! 🚀
+    ### Welcome to the Unified Developer Portal! 🚀
     
-    DevPilot AI is a modular developer assistant that parses user prompts and automatically assigns them to
-    specialized AI agent roles based on a **3-Tier Priority Task Router**.
-    
-    This visual dashboard connects directly to the core python backend libraries, exposing conversation states,
-    routing paths, and agent instruction contexts.
+    This console brings together all features of the project in a single layout:
+    - 🤖 **AI Agent Copilot**: Chat with specialized agents (Coder, Debugger, Planner, etc.) and trace task routing.
+    - 📁 **VCS Repository Browser**: View branch histories, commits, issues, and manage pull requests.
+    - 🔍 **RAG Code Search**: Perform semantic indexing and search function chunks inside your codebase.
     
     ---
     """)
     
-    # Showcase Agent Features
-    st.subheader("🤖 The Agent Suite")
+    st.subheader("💡 Main Workspace Modules")
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.markdown("""
         <div class="agent-card">
-            <div class="agent-header">💻 Coding Agent</div>
-            <p>Generates production-grade scripts, refactors files, and explains mathematical/algorithmic logic.</p>
-            <strong>Default Key:</strong> <code>coding</code>
+            <div class="agent-header">🤖 Multi-Agent Copilot</div>
+            <p>Engage specialized agents for debugging, code generation, roadmap planning, and repository tracing.</p>
         </div>
         """, unsafe_allow_html=True)
-        st.write("")
-        st.markdown("""
-        <div class="agent-card">
-            <div class="agent-header">📝 Documentation Agent</div>
-            <p>Drafts high-level Markdown README files, writes docstrings, and organizes API specifications.</p>
-            <strong>Default Key:</strong> <code>documentation</code>
-        </div>
-        """, unsafe_allow_html=True)
-        
     with col2:
         st.markdown("""
         <div class="agent-card">
-            <div class="agent-header">🩺 Debugger Agent</div>
-            <p>Analyzes exception logs and stack traces to detect logical bugs and generate code diff patches.</p>
-            <strong>Default Key:</strong> <code>debugger</code>
+            <div class="agent-header">🐙 GitHub Integration</div>
+            <p>Connect your GitHub token to inspect repository logs, create branches, post issues, and submit PR files.</p>
         </div>
         """, unsafe_allow_html=True)
-        st.write("")
-        st.markdown("""
-        <div class="agent-card">
-            <div class="agent-header">🗺️ Planning Agent</div>
-            <p>Decomposes complex requests into incremental phased roadmaps, checklists, and risk matrices.</p>
-            <strong>Default Key:</strong> <code>planning</code>
-        </div>
-        """, unsafe_allow_html=True)
-        
     with col3:
         st.markdown("""
         <div class="agent-card">
-            <div class="agent-header">🔍 Repository Explainer</div>
-            <p>Summarizes folder structures, explains package relations, and traces system entry points.</p>
-            <strong>Default Key:</strong> <code>repository</code>
+            <div class="agent-header">🔍 Code RAG Semantic Search</div>
+            <p>Scan and index source codes to retrieve relevant text chunks matching your search queries.</p>
         </div>
         """, unsafe_allow_html=True)
-        st.write("")
-        st.markdown("""
-        <div class="agent-card">
-            <div class="agent-header">🐚 Terminal Assistant</div>
-            <p>Troubleshoots Docker port errors, configures Git actions, and suggests platform-agnostic shell scripts.</p>
-            <strong>Default Key:</strong> <code>terminal</code>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.subheader("💡 Quick Start Guide")
-    st.info("""
-    1. **Online Mode**: Add your keys (e.g. `GEMINI_API_KEY` or `OPENAI_API_KEY`) to the `.env` configuration file to run live LLM requests.
-    2. **Offline Fallback**: Run right away! The system activates a high-fidelity simulator to process queries instantly without keys.
-    3. **Start Chatting**: Select the **AI Assistant** in the sidebar navigation and submit your queries!
-    """)
 
 
 def show_assistant():
-    """Renders the Interactive AI Assistant Page along with Router Decisions and Export."""
+    """Renders the Chat Assistant Page along with Router logs and Export triggers."""
     st.markdown('<div class="main-title">AI Assistant & Chat</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Interact with DevPilot and inspect real-time agent routing decisions</div>', unsafe_allow_html=True)
     
     col_chat, col_side_panel = st.columns([2, 1])
     
     history = st.session_state.memory.get_history()
-    mode_label = st.session_state.llm.mode.upper()
     
     with col_chat:
-        st.subheader("💬 Conversations")
+        st.subheader("💬 Active Thread Conversations")
         
         # Chat Messages Window
         chat_container = st.container(height=450)
@@ -311,7 +271,6 @@ def show_assistant():
                     st.rerun()
                 except Exception as e:
                     st.error(f"Orchestration Error: {e}")
-                    logger.error(f"Error in UI prompt submit: {e}", exc_info=True)
 
     with col_side_panel:
         # Router Decision Panel
@@ -355,6 +314,180 @@ def show_assistant():
             st.rerun()
 
 
+def show_github_browser():
+    """Renders the VCS GitHub repository client browser."""
+    st.markdown('<div class="main-title">GitHub Repository Browser</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Inspect branch logs, pull requests, issues, and commit files</div>', unsafe_allow_html=True)
+    
+    client = st.session_state.github_client
+    
+    if not client.token:
+        st.warning("⚠️ No GitHub Personal Access Token configured. Paste your Token in the sidebar settings to unlock repository browsing.")
+        return
+
+    # Load repos
+    if not st.session_state.repositories:
+        with st.spinner("Fetching repositories..."):
+            st.session_state.repositories = run_async(client.get_user_repos())
+            
+    repos = st.session_state.repositories
+    if not repos:
+        st.error("No repositories found for this account. Ensure your token is correct and has 'repo' scopes.")
+        return
+
+    repo_options = [r["full_name"] for r in repos]
+    selected_repo_name = st.selectbox("Select Target Repository:", repo_options)
+    
+    if selected_repo_name:
+        owner, name = selected_repo_name.split("/")
+        
+        # Sub-tabs
+        tab_commits, tab_branches, tab_prs, tab_issues = st.tabs([
+            "📁 Commits History", "🌿 Branches", "🔀 Pull Requests", "🩺 Issues"
+        ])
+        
+        with tab_commits:
+            st.subheader("Recent Commits")
+            commits = run_async(client.get_commits(owner, name))
+            if not commits:
+                st.info("No commits found or error loading commits.")
+            for c in commits:
+                author = c.get("commit", {}).get("author", {}).get("name", "Unknown")
+                date = c.get("commit", {}).get("author", {}).get("date", "")[:10]
+                msg = c.get("commit", {}).get("message", "")
+                st.markdown(f"**{msg}**  \n*Authored by {author} on {date}*")
+                st.write("---")
+                
+        with tab_branches:
+            st.subheader("Branches List")
+            branches = run_async(client.get_branches(owner, name))
+            if not branches:
+                st.info("No branches found.")
+            for b in branches:
+                st.markdown(f"- 🌿 `{b.get('name')}`")
+                
+            # Create new branch
+            st.write("---")
+            with st.expander("🆕 Create New Branch"):
+                with st.form("form_create_branch"):
+                    new_branch = st.text_input("New Branch Name:", placeholder="e.g. feature/oauth")
+                    source_branch = st.selectbox("Source Branch:", [b.get("name") for b in branches])
+                    btn_submit = st.form_submit_button("Create Branch")
+                    if btn_submit and new_branch:
+                        with st.spinner("Creating branch..."):
+                            result = run_async(client.create_branch(owner, name, new_branch, source_branch))
+                            if result["success"]:
+                                st.success(f"Branch '{new_branch}' created successfully!")
+                                st.session_state.repositories = [] # trigger reload
+                            else:
+                                st.error(f"Error: {result['error']}")
+
+        with tab_prs:
+            st.subheader("Pull Requests")
+            state_filter = st.selectbox("PR Status:", ["open", "closed", "all"])
+            prs = run_async(client.get_pull_requests(owner, name, state_filter))
+            if not prs:
+                st.info("No Pull Requests found matching filter.")
+            for pr in prs:
+                title = pr.get("title")
+                number = pr.get("number")
+                state = pr.get("state")
+                user = pr.get("user", {}).get("login", "unknown")
+                badge_class = "open" if state == "open" else "closed"
+                st.markdown(f"**#{number} {title}** <span class='badge-git {badge_class}'>{state}</span>  \n*Submitted by {user}*", unsafe_allow_html=True)
+                st.write("---")
+                
+            # Create PR
+            st.write("---")
+            with st.expander("🔀 Submit a New Pull Request"):
+                with st.form("form_create_pr"):
+                    pr_title = st.text_input("PR Title:", placeholder="e.g. Implement RAG Search")
+                    source_pr = st.text_input("Head (Source Branch):", placeholder="e.g. feature/oauth")
+                    target_pr = st.text_input("Base (Target Branch):", value="main")
+                    pr_body = st.text_area("PR Description:")
+                    btn_pr_submit = st.form_submit_button("Submit Pull Request")
+                    if btn_pr_submit and pr_title and source_pr:
+                        with st.spinner("Creating Pull Request..."):
+                            result = run_async(client.create_pull_request(owner, name, pr_title, source_pr, target_pr, pr_body))
+                            if result["success"]:
+                                st.success("Pull Request created successfully!")
+                            else:
+                                st.error(f"Error: {result['error']}")
+
+        with tab_issues:
+            st.subheader("Issues")
+            issue_state = st.selectbox("Issue Status:", ["open", "closed", "all"])
+            issues = run_async(client.get_issues(owner, name, issue_state))
+            if not issues:
+                st.info("No issues found matching filter.")
+            for issue in issues:
+                title = issue.get("title")
+                number = issue.get("number")
+                state = issue.get("state")
+                badge_class = "open" if state == "open" else "closed"
+                st.markdown(f"**#{number} {title}** <span class='badge-git {badge_class}'>{state}</span>", unsafe_allow_html=True)
+                st.write("---")
+                
+            # Create Issue
+            st.write("---")
+            with st.expander("🩺 Report a New Issue"):
+                with st.form("form_create_issue"):
+                    issue_title = st.text_input("Issue Title:", placeholder="e.g. Bug: Webhook signature failing")
+                    issue_body = st.text_area("Steps to reproduce / description:")
+                    btn_issue_submit = st.form_submit_button("Submit Issue")
+                    if btn_issue_submit and issue_title:
+                        with st.spinner("Creating issue..."):
+                            result = run_async(client.create_issue(owner, name, issue_title, issue_body))
+                            if result["success"]:
+                                st.success("Issue created successfully!")
+                            else:
+                                st.error(f"Error: {result['error']}")
+
+
+def show_analyzer():
+    """Renders the Code Search & RAG analyzer tab."""
+    st.markdown('<div class="main-title">Code Search & RAG Analyzer</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Index local codebase file content and perform semantic term matches</div>', unsafe_allow_html=True)
+    
+    analyzer = st.session_state.analyzer
+    
+    col_ctrl, col_search = st.columns([1, 2])
+    
+    with col_ctrl:
+        st.subheader("⚙️ Indexing Control")
+        dir_path = st.text_input("Directory path to scan:", value=os.getcwd())
+        
+        if st.button("🔍 Scan & Index Directory", use_container_width=True):
+            with st.spinner("Scanning codebase source files..."):
+                analyzer.root_dir = dir_path
+                total_files = analyzer.scan_and_index()
+                st.session_state.analyzer_indexed = True
+                st.success(f"Indexed successfully! Total files scanned: **{total_files}**")
+                
+        if st.session_state.analyzer_indexed:
+            st.metric("Total Indexed Chunks", len(analyzer.chunks))
+            
+    with col_search:
+        st.subheader("🔎 Semantic RAG Search")
+        query = st.text_input("Search query (e.g. 'rest api endpoint' or 'git helper'):")
+        
+        if query:
+            results = analyzer.search(query, top_k=5)
+            if not results:
+                st.warning("No matches found for that query.")
+            for r in results:
+                st.markdown(f"📂 **File:** `{r['file']}` ({r['range']}) | `{r['match']}`")
+                st.code(r["text"], language="python")
+                st.write("---")
+                
+    st.write("---")
+    st.subheader("📋 Scanned Repository Files")
+    if st.session_state.analyzer_indexed and analyzer.indexed_files:
+        st.dataframe(analyzer.indexed_files, use_container_width=True)
+    else:
+        st.info("Trigger directory indexing to view files.")
+
+
 def show_agent_dashboard():
     """Renders the Agent Status Dashboard."""
     st.markdown('<div class="main-title">Agent Status Dashboard</div>', unsafe_allow_html=True)
@@ -362,27 +495,26 @@ def show_agent_dashboard():
     
     agents = st.session_state.registry.list_agents()
     
-    # Render overall metrics
     col_stat1, col_stat2, col_stat3 = st.columns(3)
     with col_stat1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="premium-card">
-            <div class="metric-title">Online Provider Mode</div>
-            <div class="metric-value" style="color:#34d399;">ACTIVE (OFFLINE FALLBACK)</div>
+            <div class="metric-title">Inference Provider Mode</div>
+            <div class="metric-value" style="color:#34d399;">{st.session_state.llm.mode.upper()}</div>
         </div>
         """, unsafe_allow_html=True)
     with col_stat2:
         st.markdown(f"""
         <div class="premium-card">
-            <div class="metric-title">Registered Agents</div>
-            <div class="metric-value">{len(agents)} Active</div>
+            <div class="metric-title">Active Agents</div>
+            <div class="metric-value">{len(agents)}</div>
         </div>
         """, unsafe_allow_html=True)
     with col_stat3:
         st.markdown(f"""
         <div class="premium-card">
-            <div class="metric-title">Memory Type</div>
-            <div class="metric-value">Thread-Safe FIFO</div>
+            <div class="metric-title">Memory Pruning Limit</div>
+            <div class="metric-value">{st.session_state.memory.max_messages} Messages</div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -397,11 +529,9 @@ def show_agent_dashboard():
         with col_name:
             st.markdown(f"#### 🤖 {agent.name} (key: `{agent_key}`)")
         with col_status:
-            # Show a green badge indicating they are active
-            st.markdown('<span class="status-badge active">🟢 Active</span>', unsafe_allow_html=True)
+            st.markdown('<span class="status-badge active" style="font-size:0.75rem; background:rgba(52,211,153,0.15); color:#34d399; border:1px solid rgba(52,211,153,0.3); padding:2px 8px; border-radius:9999px;">🟢 Active</span>', unsafe_allow_html=True)
             
         st.write(f"*{agent.description}*")
-        
         with st.expander("👁️ View Agent Instructions (System Prompt)"):
             st.code(agent.system_prompt, language="markdown")
         st.write("")
@@ -410,7 +540,7 @@ def show_agent_dashboard():
 def show_demo_scenarios():
     """Renders the Demo Scenarios Page."""
     st.markdown('<div class="main-title">Demo Scenarios Page</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Run predefined developer workloads and trace the execution logging</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Run predefined developer workloads and trace their routing decision pipelines</div>', unsafe_allow_html=True)
     
     demo_scenarios = [
         {
@@ -481,7 +611,6 @@ def show_demo_scenarios():
                         
                         st.success(f"Successfully processed by {result['routed_agent_name']}!")
                         
-                        # Tabs to show response vs. logs
                         tab_out, tab_trace = st.tabs(["📄 Agent Output", "⚙️ Router Trace"])
                         with tab_out:
                             st.markdown(result["response"])
@@ -598,7 +727,6 @@ def show_workflow_viz():
     
     st.write("Below is the structural pipeline showing how a developer query is processed, routed, and answered.")
     
-    # Render pipeline chart
     col_info, col_chart = st.columns([1, 1])
     
     with col_info:
@@ -615,7 +743,6 @@ def show_workflow_viz():
     with col_chart:
         st.subheader("Interactive Visual Flowchart")
         
-        # Draw interactive visual flow using styled HTML boxes
         st.markdown("""
         <div class="flow-container">
             <div class="flow-node highlight">
@@ -661,7 +788,6 @@ def show_memory_viewer():
     if not history:
         st.info("No conversation memory currently exists. Ask questions in the AI Assistant to see logs here.")
         
-        # Mock loader
         st.subheader("📂 Seed Mock Memory for Testing")
         if st.button("🌱 Load Sample Developer Chat Session"):
             st.session_state.memory.add_message("user", "Explain how to initialize a git repo")
@@ -673,7 +799,6 @@ def show_memory_viewer():
 
     st.subheader("🧠 Thread Memory Logs")
     
-    # Message Editor/Inspector
     edited_history = []
     
     for idx, msg in enumerate(history):
@@ -690,7 +815,6 @@ def show_memory_viewer():
         if not delete:
             edited_history.append({"role": role, "content": content})
             
-    # Save changes button
     if len(edited_history) != len(history) or any(edited_history[i] != history[i] for i in range(len(edited_history))):
         st.session_state.memory.messages = edited_history
         st.success("Memory updated successfully!")
@@ -726,6 +850,8 @@ selected_page = st.sidebar.radio(
     [
         "Home", 
         "AI Assistant", 
+        "GitHub Browser",
+        "Code Search & RAG",
         "Agent Status Dashboard", 
         "Demo Scenarios", 
         "Multi-Agent Demo", 
@@ -734,15 +860,27 @@ selected_page = st.sidebar.radio(
     ]
 )
 
+# Sidebar Configuration Settings
+st.sidebar.write("---")
+st.sidebar.subheader("🔑 GitHub Configuration")
+token_input = st.sidebar.text_input("GitHub Access Token (PAT):", value=os.getenv("GITHUB_TOKEN") or "", type="password")
+if token_input != st.session_state.github_client.token:
+    st.session_state.github_client.set_token(token_input)
+    st.session_state.repositories = [] # reset list to reload
+
 st.sidebar.write("---")
 st.sidebar.markdown(f"**LLM Mode**: `{st.session_state.llm.mode.upper()}`")
-st.sidebar.markdown(f"**Memory Count**: `{len(st.session_state.memory.get_history())} messages`")
+st.sidebar.markdown(f"**Memory Size**: `{len(st.session_state.memory.get_history())} messages`")
 
 # Render page
 if selected_page == "Home":
     show_home()
 elif selected_page == "AI Assistant":
     show_assistant()
+elif selected_page == "GitHub Browser":
+    show_github_browser()
+elif selected_page == "Code Search & RAG":
+    show_analyzer()
 elif selected_page == "Agent Status Dashboard":
     show_agent_dashboard()
 elif selected_page == "Demo Scenarios":
